@@ -1,12 +1,29 @@
 import javax.swing.*;
 import java.awt.*;
+import java.time.LocalDateTime;
 import java.util.Random;
 
-public class GamePanel extends JPanel {
+public class GamePanel extends JPanel implements Runnable {
 
     static final int WIDTH = Toolkit.getDefaultToolkit().getScreenSize().width;
     static final int HEIGHT = Toolkit.getDefaultToolkit().getScreenSize().height;
     static int[] screenSize = {WIDTH, HEIGHT};
+    static int[][] backgroundArray = new int[WIDTH][HEIGHT];
+    static Flash[] Flashes = new Flash[100];
+
+    Thread gameThread;
+    final int FPS = 60;
+
+    long lastTime = LocalDateTime.now().getSecond();
+    long presentTime;
+
+    int numberOfVerticals = 17;
+    int numberOfHorizontals = 30;
+
+    static Random random = new Random();
+    static int randomInt;
+
+    boolean firstRun = true;
 
     public GamePanel() {
 
@@ -15,50 +32,143 @@ public class GamePanel extends JPanel {
         this.setLayout(null);
         this.setFocusable(true);
 
+        gameThread = new Thread(this);
+        gameThread.start();
     }
 
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
-        Random random = new Random();
-        int randomInt;
-        for (int i = 0; i < WIDTH; i++) {
-            for (int j = 0; j < HEIGHT; j++) {
-                randomInt = random.nextInt(100)+1;
-                if(randomInt>=50){
-                    g2.setColor(new Color(25,65,150));
-                }else{
-                    g2.setColor(new Color(20,55,130));
-                }
-                g2.fillRect(i,j,1,1);
-            }
+
+        if (firstRun) {
+            createBackgroundArray(g2);
+            firstRun = false;
         }
-        int xValue = 50;
-        int yValue = 50;
-        g2.setColor(new Color(40,100,230));
+        paintBackground(g2);
 
-        do {
-            g2.drawLine(0, yValue, WIDTH, yValue);
-            yValue += 50;
-        } while (yValue <= HEIGHT);
+        randomInt = random.nextInt(numberOfHorizontals)+1;
+        presentTime = LocalDateTime.now().getSecond();
 
-        do {
-            g2.drawLine(xValue, 0, xValue, HEIGHT);
-            xValue += 50;
-        } while (xValue <= WIDTH);
+        long differenceBetweenTimes = 0;
+        if(lastTime>presentTime){
+            differenceBetweenTimes = lastTime-presentTime;
+        }else{
+            differenceBetweenTimes = presentTime-lastTime;
+        }
 
-        g2.setColor(new Color(23,60,140));
-        for (int i = 0; i < WIDTH; i++) {
-            for (int j = 0; j < HEIGHT; j++) {
-                randomInt = random.nextInt(100)+1;
-                if(randomInt>=80){
-                    g2.fillRect(i,j,1,1);
+        int countOfFlash = 5;
+        if(differenceBetweenTimes>=3){
+            for (int j = 0; j < Flashes.length; j++) {
+                if (countOfFlash > 0 && Flashes[j] == null) {
+                    countOfFlash --;
+                    Flashes[j] = new Flash(0, randomInt*50, false,3);
+                    randomInt = random.nextInt(numberOfHorizontals)+1;
                 }
             }
+            lastTime = presentTime;
         }
-        drawFlash(g2);
+        drawFlashes(g2);
     }
 
-    public static void drawFlash(Graphics2D g2){
+    private static void createBackgroundArray(Graphics2D g2) {
+
+        for (int i = 0; i < WIDTH; i++) {
+            for (int j = 0; j < HEIGHT; j++) {
+                randomInt = random.nextInt(100) + 1;
+                if (randomInt >= 50) {
+                    backgroundArray[i][j] = 1;
+                } else {
+                    backgroundArray[i][j] = 2;
+                }
+            }
+        }
+
+        drawingVerticalAndHorizontalLines(50, 50, 4);
+        drawingVerticalAndHorizontalLines(25, 25, 5);
+
+        for (int i = 0; i < WIDTH; i++) {
+            for (int j = 0; j < HEIGHT; j++) {
+                randomInt = random.nextInt(100) + 1;
+                if (randomInt >= 80) {
+                    backgroundArray[i][j] = 3;
+                }
+            }
+        }
+    }
+
+    private static void drawingVerticalAndHorizontalLines(int yValue, int xValue, int arrayValue) {
+        do {
+            for (int i = 0; i < WIDTH; i++) {
+                backgroundArray[i][yValue] = arrayValue;
+            }
+            yValue = yValue + 50;
+        } while (yValue < HEIGHT);
+
+        do {
+            for (int i = 0; i < HEIGHT; i++) {
+                backgroundArray[xValue][i] = arrayValue;
+            }
+            xValue = xValue + 50;
+        } while (xValue < WIDTH);
+    }
+
+    private static void paintBackground(Graphics2D g2) {
+        for (int i = 0; i < WIDTH; i++) {
+            for (int j = 0; j < HEIGHT; j++) {
+                if (backgroundArray[i][j] == 1) {
+                    g2.setColor(new Color(25, 65, 150));
+                } else if (backgroundArray[i][j] == 2) {
+                    g2.setColor(new Color(23, 55, 130));
+                } else if (backgroundArray[i][j] == 3) {
+                    g2.setColor(new Color(24, 60, 140));
+                } else if (backgroundArray[i][j] == 4) {
+                    g2.setColor(new Color(40, 100, 230));
+                } else if (backgroundArray[i][j] == 5) {
+                    g2.setColor(new Color(44, 111, 255));
+                }
+                g2.fillRect(i, j, 1, 1);
+            }
+        }
+    }
+
+    public static void drawFlashes(Graphics2D g2) {
+        g2.setColor(Color.WHITE);
+        for (Flash flash : Flashes) {
+            if (flash != null) {
+                g2.drawLine(flash.getxCoordinate(), flash.getyCoordinate(), 20, flash.getyCoordinate());
+            }
+        }
+    }
+
+    public void update() {
+
+    }
+
+    @Override
+    public void run() {
+        double drawInterval = (double) 1000000000 / FPS;
+        double delta = 0;
+        long lastTime = System.nanoTime();
+        long currentTime;
+        long timer = 0;
+        long drawCount = 0;
+        while (gameThread != null) {
+
+            currentTime = System.nanoTime();
+            delta += (currentTime - lastTime) / drawInterval;
+            timer += (currentTime - lastTime);
+            lastTime = currentTime;
+
+            if (delta >= 1) {
+                update();
+                repaint();
+                delta--;
+                drawCount++;
+            }
+            if (timer >= 1000000000) {
+                drawCount = 0;
+                timer = 0;
+            }
+        }
     }
 }

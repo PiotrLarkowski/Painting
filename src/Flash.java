@@ -1,8 +1,8 @@
 public class Flash {
-    int xCoordinate;
-    int yCoordinate;
+    private int xCoordinate;
+    private int yCoordinate;
     boolean isVertical;
-    int speed;
+    private int speed;
 
     public Flash(int xCoordinate, int yCoordinate, boolean isVertical, int speed){
         this.xCoordinate = xCoordinate;

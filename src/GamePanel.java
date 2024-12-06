@@ -12,13 +12,14 @@ public class GamePanel extends JPanel implements Runnable {
     static Flash[] Flashes = new Flash[100];
 
     Thread gameThread;
+    Thread[] flashThread = new Thread[100];
     final int FPS = 60;
 
     long lastTime = LocalDateTime.now().getSecond();
     long presentTime;
 
-    int numberOfVerticals = 17;
-    int numberOfHorizontals = 30;
+    int numberOfVerticals = Math.round(HEIGHT / 50);
+    int numberOfHorizontals = Math.round(WIDTH / 50);
 
     static Random random = new Random();
     static int randomInt;
@@ -46,23 +47,32 @@ public class GamePanel extends JPanel implements Runnable {
         }
         paintBackground(g2);
 
-        randomInt = random.nextInt(numberOfHorizontals)+1;
+        randomInt = random.nextInt(numberOfHorizontals) + 1;
+        int secondRandomInt = random.nextInt(numberOfVerticals) + 1;
         presentTime = LocalDateTime.now().getSecond();
 
         long differenceBetweenTimes = 0;
-        if(lastTime>presentTime){
-            differenceBetweenTimes = lastTime-presentTime;
-        }else{
-            differenceBetweenTimes = presentTime-lastTime;
+        if (lastTime > presentTime) {
+            differenceBetweenTimes = lastTime - presentTime;
+        } else {
+            differenceBetweenTimes = presentTime - lastTime;
         }
 
         int countOfFlash = 5;
-        if(differenceBetweenTimes>=3){
+        if (differenceBetweenTimes >= 3) {
             for (int j = 0; j < Flashes.length; j++) {
+                boolean randomBoolean = random.nextBoolean();
                 if (countOfFlash > 0 && Flashes[j] == null) {
-                    countOfFlash --;
-                    Flashes[j] = new Flash(0, randomInt*50, false,3);
-                    randomInt = random.nextInt(numberOfHorizontals)+1;
+                    if(randomBoolean){
+                        Flashes[j] = new Flash(randomInt * 50, 0, randomBoolean, 3);
+                        flashThread[j] = new Thread();
+                        randomInt = random.nextInt(numberOfHorizontals) + 1;
+                    }else{
+                        Flashes[j] = new Flash(0, secondRandomInt * 50, randomBoolean, 3);
+                        flashThread[j] = new Thread();
+                        secondRandomInt = random.nextInt(numberOfVerticals) + 1;
+                    }
+                    countOfFlash--;
                 }
             }
             lastTime = presentTime;
@@ -113,20 +123,26 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private static void paintBackground(Graphics2D g2) {
+        randomInt = random.nextInt(5) + 21;
+        int secondRandomInt = random.nextInt(11) + 55;
+        int thirdRandomInt = random.nextInt(20) + 130;
         for (int i = 0; i < WIDTH; i++) {
             for (int j = 0; j < HEIGHT; j++) {
                 if (backgroundArray[i][j] == 1) {
-                    g2.setColor(new Color(25, 65, 150));
+                    g2.setColor(new Color(randomInt, secondRandomInt, thirdRandomInt));
                 } else if (backgroundArray[i][j] == 2) {
-                    g2.setColor(new Color(23, 55, 130));
+                    g2.setColor(new Color(randomInt, secondRandomInt, thirdRandomInt));
                 } else if (backgroundArray[i][j] == 3) {
-                    g2.setColor(new Color(24, 60, 140));
+                    g2.setColor(new Color(randomInt, secondRandomInt, thirdRandomInt));
                 } else if (backgroundArray[i][j] == 4) {
                     g2.setColor(new Color(40, 100, 230));
                 } else if (backgroundArray[i][j] == 5) {
                     g2.setColor(new Color(44, 111, 255));
+                } else if (backgroundArray[i][j] == 6) {
+                    g2.setColor(new Color(255, 255, 255));
                 }
                 g2.fillRect(i, j, 1, 1);
+                randomInt = random.nextInt(5) + 21;
             }
         }
     }
@@ -135,13 +151,49 @@ public class GamePanel extends JPanel implements Runnable {
         g2.setColor(Color.WHITE);
         for (Flash flash : Flashes) {
             if (flash != null) {
-                g2.drawLine(flash.getxCoordinate(), flash.getyCoordinate(), 20, flash.getyCoordinate());
+                if(flash.isVertical) {
+                    for (int i = 0; i < 10; i++) {
+                        if((flash.getyCoordinate()+i)<HEIGHT){
+                            if((flash.getyCoordinate()-i-10)>0) {
+                                backgroundArray[flash.getxCoordinate()][flash.getyCoordinate() - i - 10] = 4;
+                            }
+                            backgroundArray[flash.getxCoordinate()][flash.getyCoordinate()+i] = 6;
+                        }
+                    }
+                }else{
+                    for (int i = 0; i < 10; i++) {
+                        if((flash.getxCoordinate()+i)<WIDTH) {
+                            if((flash.getxCoordinate()-i-10)>0) {
+                                backgroundArray[flash.getxCoordinate() - i - 10][flash.getyCoordinate()] = 4;
+                            }
+                            backgroundArray[flash.getxCoordinate() + i][flash.getyCoordinate()] = 6;
+                        }
+                    }
+                }
             }
         }
     }
 
     public void update() {
-
+        for (int i = 0; i < flashThread.length; i++) {
+            if (flashThread[i] != null) {
+                if (!Flashes[i].isVertical) {
+                    if (Flashes[i].getxCoordinate() < WIDTH) {
+                        Flashes[i].setxCoordinate(Flashes[i].getxCoordinate() + 1);
+                    }else{
+                        Flashes[i] = null;
+                        flashThread[i] = null;
+                    }
+                }else{
+                    if (Flashes[i].getyCoordinate() < HEIGHT) {
+                        Flashes[i].setyCoordinate(Flashes[i].getyCoordinate() + 1);
+                    }else{
+                        Flashes[i] = null;
+                        flashThread[i] = null;
+                    }
+                }
+            }
+        }
     }
 
     @Override
